@@ -12,7 +12,7 @@ var wikiUrlFull = 'https://en.wikipedia.org';
 // Setup Restify Server
 var server = restify.createServer();
 
-server.get(/\/.*/, restify.serveStatic({
+server.get(/\/.*/, restify.plugins.serveStatic({
 	'directory': './public',
 	'default': 'index.html'
 }));
@@ -54,7 +54,7 @@ bot.dialog('/', new builder.SimpleDialog(function (session, results) {
             searchResults.each(function (i, e) {
                 links.push($(e).attr("title"));
             });
-            
+
             var card = createThumbnailCard(session, links);
             var msg = new builder.Message(session).addAttachment(card);
             session.send(msg);
