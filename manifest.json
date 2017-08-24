@@ -2,7 +2,7 @@
     "$schema": "https://statics.teams.microsoft.com/sdk/v1.0/manifest/MicrosoftTeams.schema.json",
     "manifestVersion": "1.0",
     "version": "1.0.0",
-    "id": "%APP_GUID%",
+    "id": "e9d9a4cf-c82a-44f2-af5a-194ed6cd3b7e",
     "packageName": "com.carlburger.wikibot",
     "developer": {
         "name": "Carl Burger",
@@ -24,7 +24,7 @@
     "accentColor": "#60A18E",
     "bots": [
         {
-            "botId": "%BOT_FRAMEWORK_ID%",
+            "botId": "f3fef532-1407-48d5-9262-d7fed0376103",
             "scopes": [
                 "team",
                 "personal"
