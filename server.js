@@ -2,9 +2,9 @@ var restify = require('restify');
 var builder = require('botbuilder');
 var request = require('request');
 var cheerio = require('cheerio');
-var searchUrl = 'https://en.wikipedia.org/w/index.php?title=Special:Search&profile=default&fulltext=1&search=';
-var wikiUrl = 'https://en.m.wikipedia.org';
-var wikiUrlFull = 'https://en.wikipedia.org';
+var wikiUrl = 'https://en.wikipedia.org';
+var wikiUrlMobile = 'https://en.m.wikipedia.org';
+var searchUrl = wikiUrlMobile+'/w/index.php?title=Special:Search&profile=default&fulltext=1&search=';
 //=========================================================
 // Bot Setup
 //=========================================================
@@ -28,28 +28,46 @@ var connector = new builder.ChatConnector({
 });
 var bot = new builder.UniversalBot(connector, [
     function (session) {
-        builder.Prompts.text(session, "Hi! Which topic interests you?");
+        session.send("Hi, I am wikibot!");
+        session.beginDialog("searchWiki");
+    }
+]);
+
+bot.dialog("searchWiki", [
+    function (session, args, next) {
+        if (args && args.reprompt) {
+            session.dialogData.reprompt = true;
+            builder.Prompts.text(session, "Which topic interests you? You can click one of the topics above or type in a new one.");
+        } else {
+            builder.Prompts.text(session, "Which topic interests you?");
+        }
     },
 
     function (session, results, next) {
         session.dialogData.topic = session.message.text,
         session.dialogData.url = searchUrl+session.dialogData.topic;
-        session.send("Let me search for a matching Wikipedia page... ");
+        if (session.dialogData.reprompt) {
+            session.send("Let me lookup the Wikipedia page... ");
+        } else {
+            session.send("Let me search for a matching Wikipedia page... ");
+        }
+        session.sendTyping();
         request(session.dialogData.url, function(err, resp, body){
             $ = cheerio.load(body);
             var link = $('.searchresults .mw-search-exists a').attr('href');
             if (link) {
-                session.dialogData.url = wikiUrl+link;
-                request(session.dialogData.url, function(err, resp, body) {
+                request(wikiUrlMobile+link, function(err, resp, body) {
                     $ = cheerio.load(body);
                     var text = $('#mf-section-0 p').text();
-                    // if (text.index("may refer to:") >= 0) {
-                    //     session.dialogData.alt = text;
-                    //     session.dialogData.searchResults = $('#mf-section-0 ul li a');
-                    // } else {
+                    if (text.indexOf("may refer to:") >= 0) {
+                        session.dialogData.alt = text;
+                        session.dialogData.searchResults = $('#mf-section-0 ul li a');
+                        next();
+                    } else {
                         session.send(text);
-                        session.send(wikiUrlFull+link);
-                    // }
+                        session.send(wikiUrl+link);
+                        session.endDialog();
+                    }
                 });
             } else {
                 if ($('.searchdidyoumean').length) {
@@ -58,7 +76,6 @@ var bot = new builder.UniversalBot(connector, [
                 session.dialogData.searchResults = $('.mw-search-results li a');
                 next();
             }
-            session.endDialog();
         });
     },
 
@@ -68,7 +85,9 @@ var bot = new builder.UniversalBot(connector, [
         session.dialogData.searchResults.each(function (i, e) {
             links.push($(e).attr("title"));
         });
-        if (session.dialogData.dym) {
+        if (session.dialogData.alt) {
+            text = session.dialogData.alt;
+        } else if (session.dialogData.dym) {
             text = "Sadly I could not find any direct match. Did you maybe mean \""+session.dialogData.dym+"\"?";
         } else {
             text = "Sadly I could not find any direct match. How about these alternatives?";
@@ -77,16 +96,10 @@ var bot = new builder.UniversalBot(connector, [
         var card = createThumbnailCard(session, links);
         var msg = new builder.Message(session).addAttachment(card);
         session.send(msg);
-        session.endDialog;
+        session.replaceDialog('searchWiki', { reprompt: true });
     }
 ]);
 server.post('/api/messages', connector.listen());
-
-//=========================================================
-// Bots Dialogs
-//=========================================================
-
-// bot.dialog('greetings', );
 
 
 function createThumbnailCard(session, options) {
@@ -96,8 +109,8 @@ function createThumbnailCard(session, options) {
         buttons.push(card);
     }
     return new builder.ThumbnailCard(session)
-        .title('Wikibot')
+        .title('Available topics')
         .subtitle('')
-        .text('')
+        .text('Click one of the available topics to get a summary.')
         .buttons(buttons);
 }
