@@ -2,7 +2,7 @@ var restify = require('restify');
 var builder = require('botbuilder');
 var request = require('request');
 var cheerio = require('cheerio');
-var searchUrl = 'https://en.wikipedia.org/w/index.php?title=Spezial:Suche&profile=default&fulltext=1&search=';
+var searchUrl = 'https://en.wikipedia.org/w/index.php?title=Special:Search&profile=default&fulltext=1&search=';
 var wikiUrl = 'https://en.m.wikipedia.org';
 var wikiUrlFull = 'https://en.wikipedia.org';
 //=========================================================
@@ -12,10 +12,10 @@ var wikiUrlFull = 'https://en.wikipedia.org';
 // Setup Restify Server
 var server = restify.createServer();
 
-server.get(/\/.*/, restify.plugins.serveStatic({
-	'directory': './public',
-	'default': 'index.html'
-}));
+// server.get(/\/.*/, restify.plugins.serveStatic({
+// 	'directory': './public',
+// 	'default': 'index.html'
+// }));
 
 server.listen(process.env.port || process.env.PORT || 3978, function () {
    console.log('%s listening to %s', server.name, server.url);
@@ -26,41 +26,67 @@ var connector = new builder.ChatConnector({
     appId: process.env.MICROSOFT_APP_ID,
     appPassword: process.env.MICROSOFT_APP_PASSWORD
 });
-var bot = new builder.UniversalBot(connector);
+var bot = new builder.UniversalBot(connector, [
+    function (session) {
+        builder.Prompts.text(session, "Hi! Which topic interests you?");
+    },
+
+    function (session, results, next) {
+        session.dialogData.topic = session.message.text,
+        session.dialogData.url = searchUrl+session.dialogData.topic;
+        session.send("Let me search for a matching Wikipedia page... ");
+        request(session.dialogData.url, function(err, resp, body){
+            $ = cheerio.load(body);
+            var link = $('.searchresults .mw-search-exists a').attr('href');
+            if (link) {
+                session.dialogData.url = wikiUrl+link;
+                request(session.dialogData.url, function(err, resp, body) {
+                    $ = cheerio.load(body);
+                    var text = $('#mf-section-0 p').text();
+                    // if (text.index("may refer to:") >= 0) {
+                    //     session.dialogData.alt = text;
+                    //     session.dialogData.searchResults = $('#mf-section-0 ul li a');
+                    // } else {
+                        session.send(text);
+                        session.send(wikiUrlFull+link);
+                    // }
+                });
+            } else {
+                if ($('.searchdidyoumean').length) {
+                    session.dialogData.dym = $('#mw-search-DYM-rewritten').text();
+                }
+                session.dialogData.searchResults = $('.mw-search-results li a');
+                next();
+            }
+            session.endDialog();
+        });
+    },
+
+    function(session, results) {
+        var links = [],
+            text;
+        session.dialogData.searchResults.each(function (i, e) {
+            links.push($(e).attr("title"));
+        });
+        if (session.dialogData.dym) {
+            text = "Sadly I could not find any direct match. Did you maybe mean \""+session.dialogData.dym+"\"?";
+        } else {
+            text = "Sadly I could not find any direct match. How about these alternatives?";
+        }
+        session.send(text);
+        var card = createThumbnailCard(session, links);
+        var msg = new builder.Message(session).addAttachment(card);
+        session.send(msg);
+        session.endDialog;
+    }
+]);
 server.post('/api/messages', connector.listen());
 
 //=========================================================
 // Bots Dialogs
 //=========================================================
 
-bot.dialog('/', new builder.SimpleDialog(function (session, results) {
-    var searchString = session.message.text,
-        url = searchUrl+searchString;
-    session.send("Let me search for a matching Wikipedia page... ");
-    request(url, function(err, resp, body){
-        $ = cheerio.load(body);
-        var link = $('.searchresults .mw-search-exists a').attr('href');
-        if (link) {
-            url = wikiUrl+link;
-            request(url, function(err, resp, body) {
-                $ = cheerio.load(body);
-                var text = $('#mf-section-0 p').text();
-                session.send(text);
-                session.send(wikiUrlFull+link);
-            });
-        } else {
-            var searchResults = $('.mw-search-results li a'),
-                links = [];
-            searchResults.each(function (i, e) {
-                links.push($(e).attr("title"));
-            });
-
-            var card = createThumbnailCard(session, links);
-            var msg = new builder.Message(session).addAttachment(card);
-            session.send(msg);
-        }
-    });
-}));
+// bot.dialog('greetings', );
 
 
 function createThumbnailCard(session, options) {
@@ -72,6 +98,6 @@ function createThumbnailCard(session, options) {
     return new builder.ThumbnailCard(session)
         .title('Wikibot')
         .subtitle('')
-        .text('Sadly I could not find any direct match. How about these alternatives?')
+        .text('')
         .buttons(buttons);
 }
