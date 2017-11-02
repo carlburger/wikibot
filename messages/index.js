@@ -19,7 +19,7 @@ var connector = useEmulator ? new builder.ChatConnector() : new botbuilder_azure
 
 var bot = new builder.UniversalBot(connector, [
     function (session) {
-        session.send("Hi, I am wikibot!");
+        session.send("Hello, I am wikibot!");
         session.beginDialog("searchWiki");
     }
 ]);
@@ -127,7 +127,7 @@ if (useEmulator) {
     server.listen(3978, function() {
         console.log('test bot endpont at http://localhost:3978/api/messages');
     });
-    server.post('/api/messages', connector.listen());    
+    server.post('/api/messages', connector.listen());
 } else {
     module.exports = { default: connector.listen() }
 }
