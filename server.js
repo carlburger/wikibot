@@ -12,10 +12,10 @@ var searchUrl = wikiUrlMobile+'/w/index.php?title=Special:Search&profile=default
 // Setup Restify Server
 var server = restify.createServer();
 
-// server.get(/\/.*/, restify.plugins.serveStatic({
-// 	'directory': './public',
-// 	'default': 'index.html'
-// }));
+server.get(/\/.*/, restify.plugins.serveStatic({
+	'directory': './public',
+	'default': 'index.html'
+}));
 
 server.listen(process.env.port || process.env.PORT || 3978, function () {
    console.log('%s listening to %s', server.name, server.url);
@@ -38,6 +38,9 @@ bot.dialog("searchWiki", [
         if (args && args.reprompt) {
             session.dialogData.reprompt = true;
             builder.Prompts.text(session, "Which topic interests you? You can click one of the topics above or type in a new one.");
+        } else if (args && args.another) {
+            session.dialogData.another = true;
+            builder.Prompts.text(session, "Another topic? Type 'No' to end conversation.");
         } else {
             builder.Prompts.text(session, "Which topic interests you?");
         }
@@ -46,6 +49,10 @@ bot.dialog("searchWiki", [
     function (session, results, next) {
         session.dialogData.topic = session.message.text,
         session.dialogData.url = searchUrl+session.dialogData.topic;
+        if (session.dialogData.another && (session.dialogData.topic == "No" || session.dialogData.topic == "no")) {
+            session.dialogData.end = true;
+            next()
+        }
         if (session.dialogData.reprompt) {
             session.send("Let me lookup the Wikipedia page... ");
         } else {
@@ -66,7 +73,7 @@ bot.dialog("searchWiki", [
                     } else {
                         session.send(text);
                         session.send(wikiUrl+link);
-                        session.endDialog();
+                        session.replaceDialog('searchWiki', { another: true });
                     }
                 });
             } else {
@@ -79,24 +86,32 @@ bot.dialog("searchWiki", [
         });
     },
 
-    function(session, results) {
-        var links = [],
-            text;
-        session.dialogData.searchResults.each(function (i, e) {
-            links.push($(e).attr("title"));
-        });
-        if (session.dialogData.alt) {
-            text = session.dialogData.alt;
-        } else if (session.dialogData.dym) {
-            text = "Sadly I could not find any direct match. Did you maybe mean \""+session.dialogData.dym+"\"?";
+    function(session, results, next) {
+        if (session.dialogData.end) {
+            next();
         } else {
-            text = "Sadly I could not find any direct match. How about these alternatives?";
+            var links = [],
+                text;
+            session.dialogData.searchResults.each(function (i, e) {
+                links.push($(e).attr("title"));
+            });
+            if (session.dialogData.alt) {
+                text = session.dialogData.alt;
+            } else if (session.dialogData.dym) {
+                text = "Sadly I could not find any direct match. Did you maybe mean \""+session.dialogData.dym+"\"?";
+            } else {
+                text = "Sadly I could not find any direct match. How about these alternatives?";
+            }
+            session.send(text);
+            var card = createThumbnailCard(session, links);
+            var msg = new builder.Message(session).addAttachment(card);
+            session.send(msg);
+            session.replaceDialog('searchWiki', { reprompt: true });
         }
-        session.send(text);
-        var card = createThumbnailCard(session, links);
-        var msg = new builder.Message(session).addAttachment(card);
-        session.send(msg);
-        session.replaceDialog('searchWiki', { reprompt: true });
+    },
+
+    function(session, results) {
+        session.endConversation("Thank you for using wikibot. Goodbye.");
     }
 ]);
 server.post('/api/messages', connector.listen());
