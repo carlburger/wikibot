@@ -1,7 +1,7 @@
 {
-  "name": "waterfallbot",
+  "name": "wikibot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Searches for wikipedia entries and posts abstracts of found articles.",
   "main": "index.js",
   "dependencies": {
     "botbuilder": "^3.7.0",
@@ -15,6 +15,6 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Carl Burger",
   "license": "ISC"
 }
