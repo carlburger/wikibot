@@ -40,7 +40,7 @@ bot.dialog("searchWiki", [
     },
 
     function (session, results, next) {
-        session.dialogData.topic = session.message.text,
+        session.dialogData.topic = session.message.text;
         session.dialogData.url = searchUrl+session.dialogData.topic;
         if (session.dialogData.another && (session.dialogData.topic == "No" || session.dialogData.topic == "no")) {
             session.dialogData.end = true;
