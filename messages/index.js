@@ -12,6 +12,7 @@ var path = require('path');
 var wikiUrl = 'https://en.wikipedia.org';
 var wikiUrlMobile = 'https://en.m.wikipedia.org';
 var searchUrl = wikiUrlMobile+'/w/index.php?title=Special:Search&profile=default&fulltext=1&search=';
+var $;
 
 var useEmulator = (process.env.NODE_ENV == 'development');
 
@@ -50,38 +51,39 @@ bot.dialog("searchWiki", [
         if (session.dialogData.another && (session.dialogData.topic == "No" || session.dialogData.topic == "no")) {
             session.dialogData.end = true;
             next();
-        }
-        if (session.dialogData.reprompt) {
-            session.send("Let me lookup the Wikipedia page... ");
         } else {
-            session.send("Let me search for a matching Wikipedia page... ");
-        }
-        session.sendTyping();
-        request(session.dialogData.url, function(err, resp, body){
-            var $ = cheerio.load(body);
-            var link = $('.searchresults .mw-search-exists a').attr('href');
-            if (link) {
-                request(wikiUrlMobile+link, function(err, resp, body) {
-                    $ = cheerio.load(body);
-                    var text = $('#mf-section-0 p').text();
-                    if (text.indexOf("may refer to:") >= 0) {
-                        session.dialogData.alt = text;
-                        session.dialogData.searchResults = $('#mf-section-0 ul li a');
-                        next();
-                    } else {
-                        session.send(text);
-                        session.send(wikiUrl+link);
-                        session.replaceDialog('searchWiki', { another: true });
-                    }
-                });
+            if (session.dialogData.reprompt) {
+                session.send("Let me lookup the Wikipedia page... ");
             } else {
-                if ($('.searchdidyoumean').length) {
-                    session.dialogData.dym = $('#mw-search-DYM-rewritten').text();
-                }
-                session.dialogData.searchResults = $('.mw-search-results li a');
-                next();
+                session.send("Let me search for a matching Wikipedia page... ");
             }
-        });
+            session.sendTyping();
+            request(session.dialogData.url, function(err, resp, body){
+                $ = cheerio.load(body);
+                var link = $('.searchresults .mw-search-exists a').attr('href');
+                if (link) {
+                    request(wikiUrlMobile+link, function(err, resp, body) {
+                        $ = cheerio.load(body);
+                        var text = $('#mf-section-0 p').text();
+                        if (text.indexOf("may refer to:") >= 0) {
+                            session.dialogData.alt = text;
+                            session.dialogData.searchResults = $('#mf-section-0 ul li a');
+                            next();
+                        } else {
+                            session.send(text);
+                            session.send(wikiUrl+link);
+                            session.replaceDialog('searchWiki', { another: true });
+                        }
+                    });
+                } else {
+                    if ($('.searchdidyoumean').length) {
+                        session.dialogData.dym = $('#mw-search-DYM-rewritten').text();
+                    }
+                    session.dialogData.searchResults = $('.mw-search-results li a');
+                    next();
+                }
+            });
+        }
     },
 
     function(session, results, next) {
@@ -110,6 +112,7 @@ bot.dialog("searchWiki", [
 
     function(session, results) {
         session.endConversation("Thank you for using wikibot. Goodbye.");
+        session.endDialog();
     }
 ]);
 
