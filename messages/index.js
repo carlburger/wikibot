@@ -6,7 +6,12 @@ https://aka.ms/abs-node-waterfall
 "use strict";
 var builder = require("botbuilder");
 var botbuilder_azure = require("botbuilder-azure");
+var request = require('request');
+var cheerio = require("cheerio");
 var path = require('path');
+var wikiUrl = 'https://en.wikipedia.org';
+var wikiUrlMobile = 'https://en.m.wikipedia.org';
+var searchUrl = wikiUrlMobile+'/w/index.php?title=Special:Search&profile=default&fulltext=1&search=';
 
 var useEmulator = (process.env.NODE_ENV == 'development');
 
@@ -53,7 +58,7 @@ bot.dialog("searchWiki", [
         }
         session.sendTyping();
         request(session.dialogData.url, function(err, resp, body){
-            $ = cheerio.load(body);
+            var $ = cheerio.load(body);
             var link = $('.searchresults .mw-search-exists a').attr('href');
             if (link) {
                 request(wikiUrlMobile+link, function(err, resp, body) {
