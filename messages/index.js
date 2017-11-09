@@ -44,7 +44,7 @@ bot.dialog("searchWiki", [
         session.dialogData.url = searchUrl+session.dialogData.topic;
         if (session.dialogData.another && (session.dialogData.topic == "No" || session.dialogData.topic == "no")) {
             session.dialogData.end = true;
-            next()
+            next();
         }
         if (session.dialogData.reprompt) {
             session.send("Let me lookup the Wikipedia page... ");
